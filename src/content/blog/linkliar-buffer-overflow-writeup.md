@@ -207,7 +207,7 @@ The full chain looked like this:
 After the exploit completes, the app sends the flag back to the server in a POST request:
 
 <video controls width="100%">
-  <source src="../../../public/images/linkliar-writeup/poc.mp4" type="video/mp4">
+  <source src="/images/linkliar-writeup/poc.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
