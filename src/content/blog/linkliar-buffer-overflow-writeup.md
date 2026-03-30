@@ -124,8 +124,8 @@ The function then creates a JSON payload containing the flag and sends it to the
 
 To call `_flag()` through the overflow, I needed two things:
 
-1. The runtime address of `_flag()`.
-2. A way to set the DebugURL in NSUserDefaults.
+1. The runtime address of `_flag()`. By exploiting the overflow, I could overwrite the program counter and redirect the application’s control flow to the `_flag()` function.
+2. A way to set `DebugURL` in `NSUserDefaults`, so that once `_flag()` is executed, it sends the flag to my attacker-controlled server.
 
 ### Deep Link Discovery
 
