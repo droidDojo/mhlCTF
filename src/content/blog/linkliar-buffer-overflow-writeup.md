@@ -102,7 +102,21 @@ I found the function and reviewed its decompiled output.
 
 ### Understanding the Overflow
 
-The loop manually copies a string without any bounds checking. It will keep writing characters to pcVar13 (which points to local_7410) until it hits a null terminator in the source string. Check out https://0xmohomiester.github.io/posts/Linkliar/ for more clarity on the same.
+The loop manually copies a string without any bounds checking. It keeps writing characters to `pcVar13`, which points to `local_7410`, until it encounters a null terminator in the source string.
+
+To verify this, I created a server that returned an overflow payload in an HTTP header.
+
+![Overflow Header](../../../public/images/linkliar-writeup/overflowShow.png)
+
+I then triggered the malicious URL from the application, making sure that LLDB was already attached to the target process.
+
+![Overflow Trigger](../../../public/images/linkliar-writeup/overflowtrigger.png)
+
+After the crash, I inspected the register state to see how the overflow had affected execution.
+
+![Overflowing](../../../public/images/linkliar-writeup/overflowing.png)
+
+At this point, it was clear that the payload had overflowed into the program counter, allowing me to redirect the application’s control flow.
 
 ### The Flag Function
 
