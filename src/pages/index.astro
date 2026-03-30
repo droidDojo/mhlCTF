@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/BlogPost.astro';
+import BaseHead from '../components/BaseHead.astro';
 import { getCollection } from 'astro:content';
 
 const posts = await getCollection('posts');
@@ -8,8 +9,8 @@ const sortedPosts = posts.sort((a, b) =>
   new Date(b.data.pubDate) - new Date(a.data.pubDate)
 );
 ---
-
-<Layout title="Home">
+<BaseHead title="Home" />
+<Layout title="Home" >
   <main class="container">
     <h1>Security Research & Reverse Engineering</h1>
     <p>Explorations in mobile hacking.</p>

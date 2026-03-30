@@ -8,7 +8,7 @@ tags: ["iOS", "reverse-engineering", "buffer-overflow", "lldb", "ghidra", "explo
 
 Yo folks, long time.
 
-Lately, I've been diving deeper into iOS reverse engineering, and during that journey, I came across the LinkLiar challenge from Mobile Hacking Labs. This one, though? It had me stuck for a while. The challenge description pretty much screamed "buffer overflow," but somehow I just couldn't spot the bug at first. Honestly, it was frustrating the kind of frustration where you're staring at the same code for hours and feel completely lost.
+Lately, I’ve been diving deeper into iOS reverse engineering, and during that journey, I came across the LinkLiar challenge from Mobile Hacking Labs. This one, though, had me stuck for quite a while. The challenge description practically screamed “buffer overflow,” but somehow I just couldn’t spot the bug at first. Honestly, it was the kind of frustration where you stare at the same code for hours and feel completely lost.
 
 But after banging my head against it long enough, things started to click.
 
@@ -160,9 +160,7 @@ When I triggered it, I found that the app stored the supplied URL in `NSUserDefa
 
 ### Turning Debug Mode Into an Info Leak
 
-This debug feature turned out to be extremely useful.
-
-When the debug deeplink was activated, the app sent a debug report to the attacker controlled server over a POST request. That report included runtime addresses.
+This debug feature turned out to be extremely useful. When the debug deeplink was activated, the app sent a debug report to the attacker controlled server over a POST request. That report included runtime addresses.
 
 <span class="img-frame">
 
