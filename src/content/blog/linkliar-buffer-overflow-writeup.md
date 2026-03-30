@@ -106,7 +106,7 @@ The loop manually copies a string without any bounds checking. It will keep writ
 
 ### The Flag Function
 
-Lets look into the flag 
+Lets look into the flag function, since the challenge discription mentioned that the flag is given by the flag() function.
 
 <span class="img-frame">
 
@@ -114,14 +114,18 @@ Lets look into the flag
 
 </span>
 
-That was an important discovery, because the challenge goal was clearly to redirect execution into this function.
+This function constructs and exfiltrates the flag. It first checks whether the input parameter is at least 32 bytes long (`0x20`). If it is, the function retrieves the debug URL from `NSUserDefaults` using the key `DebugURL`.
+
+The flag is constructed by concatenating four string fragments: `MHL{h34d`, `3r_`, `s0_l0ng_th4`, and `t_1t_0v3rfl0ws}`. Together, these form the final flag: `MHL{h34d3r_s0_l0ng_th4t_1t_0v3rfl0ws}`.
+
+The function then creates a JSON payload containing the flag and sends it to the debug URL via a POST request. This was an important discovery, because the objective of the challenge was clearly to redirect execution flow into this function and exfiltrate the flag.
 
 ### Finding an Exploitation Path
 
 To call `_flag()` through the overflow, I needed two things:
 
-1. The runtime address of `_flag()`
-2. A way to receive the exfiltrated flag request
+1. The runtime address of `_flag()`.
+2. A way to set the DebugURL in NSUserDefaults.
 
 ### Deep Link Discovery
 
