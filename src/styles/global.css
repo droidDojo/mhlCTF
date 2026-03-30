@@ -153,3 +153,19 @@ hr {
 	/* added line to stop words getting smushed together (as they go onto separate lines and some screen readers do not understand line feeds as a space */
 	white-space: nowrap;
 }
+.img-frame {
+  display: block;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.img-frame img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 4px;
+  background: #111;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
